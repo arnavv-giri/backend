@@ -12,9 +12,17 @@ public class ProductResponseDto {
     private Long vendorId;
     private String storeName;
 
-    public ProductResponseDto(Long id, String name, String category, String size,
-                              String condition, double price, int stock,
-                              Long vendorId, String storeName) {
+    public ProductResponseDto(
+            Long id,
+            String name,
+            String category,
+            String size,
+            String condition,
+            double price,
+            int stock,
+            Long vendorId,
+            String storeName
+    ) {
         this.id = id;
         this.name = name;
         this.category = category;

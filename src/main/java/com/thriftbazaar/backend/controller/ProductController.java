@@ -11,6 +11,8 @@ import com.thriftbazaar.backend.repository.VendorRepository;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/products")
 public class ProductController {
@@ -19,14 +21,19 @@ public class ProductController {
     private final VendorRepository vendorRepository;
     private final UserRepository userRepository;
 
-    public ProductController(ProductRepository productRepository,
-                             VendorRepository vendorRepository,
-                             UserRepository userRepository) {
+    public ProductController(
+            ProductRepository productRepository,
+            VendorRepository vendorRepository,
+            UserRepository userRepository
+    ) {
         this.productRepository = productRepository;
         this.vendorRepository = vendorRepository;
         this.userRepository = userRepository;
     }
 
+    // =========================
+    // 1️⃣ CREATE PRODUCT (VENDOR)
+    // =========================
     @PostMapping
     public ProductResponseDto createProduct(@RequestBody ProductRequestDto dto) {
 
@@ -56,16 +63,60 @@ public class ProductController {
 
         Product saved = productRepository.save(product);
 
+        return mapToDto(saved);
+    }
+
+    // =========================
+    // 2️⃣ PUBLIC: GET ALL PRODUCTS (STOCK > 0)
+    // =========================
+    @GetMapping
+    public List<ProductResponseDto> getAllProducts() {
+
+        return productRepository
+                .findByStockGreaterThan(0)
+                .stream()
+                .map(this::mapToDto)
+                .toList();
+    }
+
+    // =========================
+    // 3️⃣ VENDOR: GET MY PRODUCTS
+    // =========================
+    @GetMapping("/my")
+    public List<ProductResponseDto> getMyProducts() {
+
+        String email = (String) SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getPrincipal();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Vendor vendor = vendorRepository.findByUser(user)
+                .orElseThrow(() -> new RuntimeException("Vendor profile not found"));
+
+        return productRepository
+                .findByVendor(vendor)
+                .stream()
+                .map(this::mapToDto)
+                .toList();
+    }
+
+    // =========================
+    // 🔁 DTO MAPPER (PRIVATE)
+    // =========================
+    private ProductResponseDto mapToDto(Product product) {
         return new ProductResponseDto(
-                saved.getId(),
-                saved.getName(),
-                saved.getCategory(),
-                saved.getSize(),
-                saved.getCondition(),
-                saved.getPrice(),
-                saved.getStock(),
-                vendor.getId(),
-                vendor.getStoreName()
+                product.getId(),
+                product.getName(),
+                product.getCategory(),
+                product.getSize(),
+                product.getCondition(),
+                product.getPrice(),
+                product.getStock(),
+                product.getVendor().getId(),
+                product.getVendor().getStoreName()
         );
     }
 }
