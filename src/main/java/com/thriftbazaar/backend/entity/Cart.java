@@ -1,6 +1,8 @@
 package com.thriftbazaar.backend.entity;
 
 import jakarta.persistence.*;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "carts")
@@ -10,12 +12,19 @@ public class Cart {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 🧑‍💻 ONE CART PER USER
     @OneToOne
-    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    // getters & setters
+    // ✅ ADD THIS BLOCK
+    @OneToMany(
+        mappedBy = "cart",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true
+    )
+    private List<CartItem> items = new ArrayList<>();
+
+    // ===== GETTERS / SETTERS =====
 
     public Long getId() {
         return id;
@@ -27,5 +36,10 @@ public class Cart {
 
     public void setUser(User user) {
         this.user = user;
+    }
+
+    // ✅ THIS METHOD FIXES YOUR ERROR
+    public List<CartItem> getItems() {
+        return items;
     }
 }

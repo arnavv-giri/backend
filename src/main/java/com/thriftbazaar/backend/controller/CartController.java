@@ -1,6 +1,8 @@
 package com.thriftbazaar.backend.controller;
 
 import com.thriftbazaar.backend.dto.AddToCartRequestDto;
+import com.thriftbazaar.backend.dto.CartItemResponseDto;
+import com.thriftbazaar.backend.dto.CartResponseDto;
 import com.thriftbazaar.backend.entity.Cart;
 import com.thriftbazaar.backend.entity.CartItem;
 import com.thriftbazaar.backend.entity.Product;
@@ -11,6 +13,9 @@ import com.thriftbazaar.backend.repository.ProductRepository;
 import com.thriftbazaar.backend.repository.UserRepository;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
+
 
 @RestController
 @RequestMapping("/cart")
@@ -84,4 +89,34 @@ public class CartController {
 
         cartItemRepository.save(item);
     }
+    @GetMapping
+public CartResponseDto getMyCart() {
+
+    String email = (String) SecurityContextHolder
+            .getContext()
+            .getAuthentication()
+            .getPrincipal();
+
+    User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
+    Cart cart = cartRepository.findByUser(user)
+            .orElseThrow(() -> new RuntimeException("Cart not found"));
+
+    List<CartItemResponseDto> items = cart.getItems().stream()
+            .map(item -> new CartItemResponseDto(
+                    item.getProduct().getId(),
+                    item.getProduct().getName(),
+                    item.getProduct().getPrice(),
+                    item.getQuantity()
+            ))
+            .toList();
+
+    double totalAmount = items.stream()
+            .mapToDouble(i -> i.getPrice() * i.getQuantity())
+            .sum();
+
+    return new CartResponseDto(items, totalAmount);
+}
+
 }

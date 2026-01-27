@@ -19,5 +19,19 @@ public class CartItemResponseDto {
         this.quantity = quantity;
     }
 
-    // getters
+    public Long getProductId() {
+        return productId;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public double getPrice() {
+        return price;
+    }
+
+    public int getQuantity() {
+        return quantity;
+    }
 }
