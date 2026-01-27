@@ -31,7 +31,10 @@ public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         )
         .authorizeHttpRequests(auth -> auth
             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-            .requestMatchers("/cart/**").hasAuthority("ROLE_CUSTOMER")
+            .requestMatchers(HttpMethod.POST, "/cart/**").hasRole("CUSTOMER")
+.requestMatchers(HttpMethod.GET, "/cart/**").hasRole("CUSTOMER")
+.requestMatchers(HttpMethod.DELETE, "/cart/**").hasRole("CUSTOMER")
+
 
             .requestMatchers(HttpMethod.POST, "/users", "/users/login").permitAll()
             .requestMatchers(HttpMethod.GET, "/products/**").permitAll()

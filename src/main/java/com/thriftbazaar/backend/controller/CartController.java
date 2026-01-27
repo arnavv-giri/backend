@@ -3,6 +3,7 @@ package com.thriftbazaar.backend.controller;
 import com.thriftbazaar.backend.dto.AddToCartRequestDto;
 import com.thriftbazaar.backend.dto.CartItemResponseDto;
 import com.thriftbazaar.backend.dto.CartResponseDto;
+import com.thriftbazaar.backend.dto.UpdateCartItemRequestDto;
 import com.thriftbazaar.backend.entity.Cart;
 import com.thriftbazaar.backend.entity.CartItem;
 import com.thriftbazaar.backend.entity.Product;
@@ -42,53 +43,52 @@ public class CartController {
     // 1️⃣ ADD ITEM TO CART (CUSTOMER)
     // =========================
     @PostMapping("/items")
-    public void addToCart(@RequestBody AddToCartRequestDto dto) {
-        System.out.println(
-    SecurityContextHolder.getContext().getAuthentication()
-);
+public void addToCart(@RequestBody AddToCartRequestDto dto) {
+        System.out.println("AUTH = " + SecurityContextHolder.getContext().getAuthentication());
 
 
-        // 🔐 Get logged-in user
-        String email = (String) SecurityContextHolder
-                .getContext()
-                .getAuthentication()
-                .getPrincipal();
+    String email = (String) SecurityContextHolder
+            .getContext()
+            .getAuthentication()
+            .getPrincipal();
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+    User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // 🛒 Get or create cart
-        Cart cart = cartRepository.findByUser(user)
-                .orElseGet(() -> {
-                    Cart c = new Cart();
-                    c.setUser(user);
-                    return cartRepository.save(c);
-                });
+    Cart cart = cartRepository.findByUser(user)
+            .orElseGet(() -> {
+                Cart c = new Cart();
+                c.setUser(user);
+                return cartRepository.save(c);
+            });
 
-        // 📦 Get product
-        Product product = productRepository.findById(dto.getProductId())
-                .orElseThrow(() -> new RuntimeException("Product not found"));
+    Product product = productRepository.findById(dto.getProductId())
+            .orElseThrow(() -> new RuntimeException("Product not found"));
 
-        if (product.getStock() < dto.getQuantity()) {
-            throw new RuntimeException("Not enough stock available");
-        }
-
-        // 🔁 Add or update cart item
-        CartItem item = cartItemRepository
-                .findByCartAndProduct(cart, product)
-                .orElse(null);
-
-        if (item == null) {
-            item = new CartItem();
-            item.setCart(cart);
-            item.setProduct(product);
-            item.setQuantity(dto.getQuantity());
-        } else {
-            item.setQuantity(item.getQuantity() + dto.getQuantity());
-        }
-
-        cartItemRepository.save(item);
+    if (product.getStock() < dto.getQuantity()) {
+        throw new RuntimeException("Not enough stock");
     }
+
+    CartItem item = cartItemRepository
+            .findByCartAndProduct(cart, product)
+            .orElse(null);
+
+    if (item == null) {
+        item = new CartItem();
+        item.setCart(cart);
+        item.setProduct(product);
+        item.setQuantity(dto.getQuantity());
+    } else {
+        int newQty = item.getQuantity() + dto.getQuantity();
+        if (newQty > product.getStock()) {
+            throw new RuntimeException("Stock exceeded");
+        }
+        item.setQuantity(newQty);
+    }
+
+    cartItemRepository.save(item);
+}
+
     @GetMapping
 public CartResponseDto getMyCart() {
 
@@ -105,6 +105,7 @@ public CartResponseDto getMyCart() {
 
     List<CartItemResponseDto> items = cart.getItems().stream()
             .map(item -> new CartItemResponseDto(
+                item.getId(),    
                     item.getProduct().getId(),
                     item.getProduct().getName(),
                     item.getProduct().getPrice(),
@@ -118,5 +119,57 @@ public CartResponseDto getMyCart() {
 
     return new CartResponseDto(items, totalAmount);
 }
+@DeleteMapping("/items/{productId}")
+public void removeFromCart(@PathVariable Long productId) {
 
+    String email = (String) SecurityContextHolder
+            .getContext()
+            .getAuthentication()
+            .getPrincipal();
+
+    User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
+    Cart cart = cartRepository.findByUser(user)
+            .orElseThrow(() -> new RuntimeException("Cart not found"));
+
+    Product product = productRepository.findById(productId)
+            .orElseThrow(() -> new RuntimeException("Product not found"));
+
+    CartItem item = cartItemRepository
+            .findByCartAndProduct(cart, product)
+            .orElseThrow(() -> new RuntimeException("Item not in cart"));
+
+    cartItemRepository.delete(item);
+}
+@PutMapping("/items/{itemId}")
+public void updateCartItem(
+        @PathVariable Long itemId,
+        @RequestBody AddToCartRequestDto dto
+) {
+    String email = (String) SecurityContextHolder
+            .getContext()
+            .getAuthentication()
+            .getPrincipal();
+
+    User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
+    Cart cart = cartRepository.findByUser(user)
+            .orElseThrow(() -> new RuntimeException("Cart not found"));
+
+    CartItem item = cartItemRepository.findById(itemId)
+            .orElseThrow(() -> new RuntimeException("Item not found"));
+
+    if (!item.getCart().getId().equals(cart.getId())) {
+        throw new RuntimeException("Unauthorized");
+    }
+
+    if (dto.getQuantity() <= 0) {
+        throw new RuntimeException("Quantity must be positive");
+    }
+
+    item.setQuantity(dto.getQuantity());
+    cartItemRepository.save(item);
+}
 }
