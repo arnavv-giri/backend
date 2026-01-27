@@ -1,4 +1,5 @@
 package com.thriftbazaar.backend.dto;
+import java.util.List;
 
 public class ProductRequestDto {
 
@@ -8,6 +9,8 @@ public class ProductRequestDto {
     private String condition;
     private double price;
     private int stock;
+    private List<String> imageUrls;
+
 
     public String getName() { return name; }
     public String getCategory() { return category; }
@@ -15,4 +18,7 @@ public class ProductRequestDto {
     public String getCondition() { return condition; }
     public double getPrice() { return price; }
     public int getStock() { return stock; }
+    public List<String> getImageUrls() {
+    return imageUrls;
+}
 }

@@ -1,5 +1,5 @@
 package com.thriftbazaar.backend.entity;
-
+import java.util.List;
 import jakarta.persistence.*;
 
 @Entity
@@ -31,6 +31,10 @@ public class Product {
 
     @Column(nullable = false)
     private int stock;
+    
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ProductImage> images;
+
 
     // getters & setters
 
@@ -93,4 +97,8 @@ public class Product {
     public void setStock(int stock) {
         this.stock = stock;
     }
+    public List<ProductImage> getImages() {
+    return images;
+}
+
 }

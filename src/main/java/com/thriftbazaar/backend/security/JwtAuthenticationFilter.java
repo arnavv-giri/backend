@@ -10,11 +10,10 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.stereotype.Component;
-
 
 import java.io.IOException;
 import java.util.List;
+
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -32,11 +31,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = authHeader.substring(7);
 
             try {
-                // ✅ validateToken RETURNS Claims
                 Claims claims = JwtUtil.validateToken(token);
 
                 String email = claims.getSubject();
                 String role = claims.get("role", String.class);
+
+                // 🔴 CRITICAL LINE
+                SecurityContextHolder.clearContext();
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
@@ -47,8 +48,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
+                System.out.println("JWT AUTH OK → " + email + " ROLE_" + role);
+
             } catch (Exception e) {
-                // invalid / expired token → ignore and continue
+                SecurityContextHolder.clearContext();
+                System.out.println("JWT INVALID");
             }
         }
 
