@@ -25,15 +25,13 @@ public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
     http
         .csrf(csrf -> csrf.disable())
-        .anonymous(anonymous -> anonymous.disable())
+     //   .anonymous(anonymous -> anonymous.disable())
         .sessionManagement(session ->
             session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
         )
         .authorizeHttpRequests(auth -> auth
             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-            .requestMatchers(HttpMethod.POST, "/cart/**").hasRole("CUSTOMER")
-.requestMatchers(HttpMethod.GET, "/cart/**").hasRole("CUSTOMER")
-.requestMatchers(HttpMethod.DELETE, "/cart/**").hasRole("CUSTOMER")
+            .requestMatchers("/cart/**").hasRole("CUSTOMER")
 
 
             .requestMatchers(HttpMethod.POST, "/users", "/users/login").permitAll()
