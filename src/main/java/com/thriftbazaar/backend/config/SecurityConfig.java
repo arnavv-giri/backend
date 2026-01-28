@@ -46,6 +46,9 @@ public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
             .requestMatchers(HttpMethod.GET, "/products/my").hasRole("VENDOR")
             .requestMatchers(HttpMethod.PUT, "/products/*/stock").hasRole("VENDOR")
 
+            .requestMatchers(HttpMethod.POST, "/orders/**").hasRole("CUSTOMER")
+
+
             .anyRequest().authenticated()
         )
         .addFilterBefore(
