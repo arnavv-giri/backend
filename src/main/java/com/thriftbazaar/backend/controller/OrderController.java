@@ -1,7 +1,9 @@
 package com.thriftbazaar.backend.controller;
-
+import org.springframework.transaction.annotation.Transactional;
 import com.thriftbazaar.backend.dto.CartItemResponseDto;
 import com.thriftbazaar.backend.dto.CartResponseDto;
+import com.thriftbazaar.backend.dto.OrderItemResponseDto;
+import com.thriftbazaar.backend.dto.OrderResponseDto;
 import com.thriftbazaar.backend.entity.*;
 import com.thriftbazaar.backend.repository.*;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -40,8 +42,14 @@ public class OrderController {
     // =========================
     // 1️⃣ CHECKOUT (CUSTOMER)
     // =========================
+    @Transactional
     @PostMapping("/checkout")
     public void checkout() {
+        System.out.println(
+    "AUTH AT CHECKOUT = " +
+    SecurityContextHolder.getContext().getAuthentication()
+);
+
 
         // 🔐 Auth user
         String email = (String) SecurityContextHolder
@@ -95,23 +103,50 @@ public class OrderController {
         }
 
         // 🧹 Clear cart
-        cartItemRepository.deleteAll(cartItems);
+        cartItemRepository.deleteByCart(cart);
     }
 
     // =========================
     // 2️⃣ MY ORDERS (CUSTOMER)
     // =========================
-    @GetMapping("/my")
-    public List<Order> getMyOrders() {
 
-        String email = (String) SecurityContextHolder
-                .getContext()
-                .getAuthentication()
-                .getPrincipal();
+    @GetMapping
+public List<OrderResponseDto> getMyOrders() {
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+    String email = (String) SecurityContextHolder
+            .getContext()
+            .getAuthentication()
+            .getPrincipal();
 
-        return orderRepository.findByUser(user);
-    }
+    User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
+    List<Order> orders = orderRepository.findByUser(user);
+
+    return orders.stream().map(order -> {
+
+        var items = order.getItems().stream()
+                .map(i -> new OrderItemResponseDto(
+                        i.getProduct().getId(),
+                        i.getProduct().getName(),
+                        i.getQuantity(),
+                        i.getPriceAtPurchase()
+                ))
+                .toList();
+
+        double total = items.stream()
+                .mapToDouble(i -> i.getPriceAtPurchase() * i.getQuantity())
+                .sum();
+
+        return new OrderResponseDto(
+                order.getId(),
+                order.getCreatedAt(),
+                order.getStatus(),
+                total,
+                items
+        );
+
+    }).toList();
+}
+
 }

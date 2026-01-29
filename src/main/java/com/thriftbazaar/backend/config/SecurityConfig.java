@@ -25,32 +25,38 @@ public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
     http
         .csrf(csrf -> csrf.disable())
-     //   .anonymous(anonymous -> anonymous.disable())
+       .anonymous(anonymous -> anonymous.disable())
         .sessionManagement(session ->
             session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
         )
         .authorizeHttpRequests(auth -> auth
-            .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-            .requestMatchers("/cart/**").hasRole("CUSTOMER")
+    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+    // CART
+    .requestMatchers("/cart/**").hasRole("CUSTOMER")
+
+    // ORDERS
+    .requestMatchers("/orders/**").hasRole("CUSTOMER")
 
 
-            .requestMatchers(HttpMethod.POST, "/users", "/users/login").permitAll()
-            .requestMatchers(HttpMethod.GET, "/products/**").permitAll()
-            .requestMatchers("/health").permitAll()
+    // PUBLIC
+    .requestMatchers(HttpMethod.POST, "/users", "/users/login").permitAll()
+    .requestMatchers(HttpMethod.GET, "/products/**").permitAll()
+    .requestMatchers("/health").permitAll()
 
-            .requestMatchers(HttpMethod.GET, "/users").hasRole("ADMIN")
-            .requestMatchers(HttpMethod.PUT, "/vendors/*/approve").hasRole("ADMIN")
+    // ADMIN
+    .requestMatchers(HttpMethod.GET, "/users").hasRole("ADMIN")
+    .requestMatchers(HttpMethod.PUT, "/vendors/*/approve").hasRole("ADMIN")
 
-            .requestMatchers(HttpMethod.POST, "/vendors").hasRole("VENDOR")
-            .requestMatchers(HttpMethod.POST, "/products").hasRole("VENDOR")
-            .requestMatchers(HttpMethod.GET, "/products/my").hasRole("VENDOR")
-            .requestMatchers(HttpMethod.PUT, "/products/*/stock").hasRole("VENDOR")
+    // VENDOR
+    .requestMatchers(HttpMethod.POST, "/vendors").hasRole("VENDOR")
+    .requestMatchers(HttpMethod.POST, "/products").hasRole("VENDOR")
+    .requestMatchers(HttpMethod.GET, "/products/my").hasRole("VENDOR")
+    .requestMatchers(HttpMethod.PUT, "/products/*/stock").hasRole("VENDOR")
 
-            .requestMatchers(HttpMethod.POST, "/orders/**").hasRole("CUSTOMER")
+    .anyRequest().authenticated()
+)
 
-
-            .anyRequest().authenticated()
-        )
         .addFilterBefore(
             jwtAuthenticationFilter,
             UsernamePasswordAuthenticationFilter.class
