@@ -20,51 +20,74 @@ public class SecurityConfig {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
-@Bean
-public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
-    http
-        .csrf(csrf -> csrf.disable())
-       .anonymous(anonymous -> anonymous.disable())
-        .sessionManagement(session ->
-            session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-        )
-        .authorizeHttpRequests(auth -> auth
-    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+        http
+            .csrf(csrf -> csrf.disable())
 
-    // CART
-    .requestMatchers("/cart/**").hasRole("CUSTOMER")
+            // ⚠️ DO NOT disable anonymous
+            // .anonymous(anonymous -> anonymous.disable())
 
-    // ORDERS
-    .requestMatchers("/orders/**").hasRole("CUSTOMER")
+            .sessionManagement(session ->
+                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
 
+            .authorizeHttpRequests(auth -> auth
 
-    // PUBLIC
-    .requestMatchers(HttpMethod.POST, "/users", "/users/login").permitAll()
-    .requestMatchers(HttpMethod.GET, "/products/**").permitAll()
-    .requestMatchers("/health").permitAll()
+                // OPTIONS
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-    // ADMIN
-    .requestMatchers(HttpMethod.GET, "/users").hasRole("ADMIN")
-    .requestMatchers(HttpMethod.PUT, "/vendors/*/approve").hasRole("ADMIN")
+                // =========================
+                // ORDERS — ADMIN / VENDOR FIRST
+                // =========================
+                .requestMatchers(HttpMethod.PUT, "/orders/*/status")
+                    .hasAnyRole("ADMIN", "VENDOR")
 
-    // VENDOR
-    .requestMatchers(HttpMethod.POST, "/vendors").hasRole("VENDOR")
-    .requestMatchers(HttpMethod.POST, "/products").hasRole("VENDOR")
-    .requestMatchers(HttpMethod.GET, "/products/my").hasRole("VENDOR")
-    .requestMatchers(HttpMethod.PUT, "/products/*/stock").hasRole("VENDOR")
+                // =========================
+                // ORDERS — CUSTOMER
+                // =========================
+                .requestMatchers(HttpMethod.POST, "/orders/checkout")
+                    .hasRole("CUSTOMER")
 
-    .anyRequest().authenticated()
-)
+                .requestMatchers(HttpMethod.GET, "/orders/**")
+                    .hasRole("CUSTOMER")
 
-        .addFilterBefore(
-            jwtAuthenticationFilter,
-            UsernamePasswordAuthenticationFilter.class
-        );
+                // =========================
+                // CART — CUSTOMER
+                // =========================
+                .requestMatchers("/cart/**")
+                    .hasRole("CUSTOMER")
 
-    return http.build();
+                // =========================
+                // PUBLIC
+                // =========================
+                .requestMatchers(HttpMethod.POST, "/users", "/users/login").permitAll()
+                .requestMatchers(HttpMethod.GET, "/products/**").permitAll()
+                .requestMatchers("/health").permitAll()
+
+                // =========================
+                // ADMIN
+                // =========================
+                .requestMatchers(HttpMethod.GET, "/users").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/vendors/*/approve").hasRole("ADMIN")
+
+                // =========================
+                // VENDOR
+                // =========================
+                .requestMatchers(HttpMethod.POST, "/vendors").hasRole("VENDOR")
+                .requestMatchers(HttpMethod.POST, "/products").hasRole("VENDOR")
+                .requestMatchers(HttpMethod.GET, "/products/my").hasRole("VENDOR")
+                .requestMatchers(HttpMethod.PUT, "/products/*/stock").hasRole("VENDOR")
+
+                .anyRequest().authenticated()
+            )
+
+            .addFilterBefore(
+                jwtAuthenticationFilter,
+                UsernamePasswordAuthenticationFilter.class
+            );
+
+        return http.build();
+    }
 }
-
-
-}
-

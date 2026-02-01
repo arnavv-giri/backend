@@ -4,6 +4,7 @@ import com.thriftbazaar.backend.dto.CartItemResponseDto;
 import com.thriftbazaar.backend.dto.CartResponseDto;
 import com.thriftbazaar.backend.dto.OrderItemResponseDto;
 import com.thriftbazaar.backend.dto.OrderResponseDto;
+import com.thriftbazaar.backend.dto.UpdateOrderStatusRequestDto;
 import com.thriftbazaar.backend.entity.*;
 import com.thriftbazaar.backend.repository.*;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -147,6 +148,48 @@ public List<OrderResponseDto> getMyOrders() {
         );
 
     }).toList();
+}
+@PutMapping("/{orderId}/status")
+public void updateOrderStatus(
+        @PathVariable Long orderId,
+        @RequestBody UpdateOrderStatusRequestDto dto
+) {
+
+    Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new RuntimeException("Order not found"));
+
+    OrderStatus current = order.getStatus();
+    OrderStatus next = dto.getStatus();
+
+    if (next == null) {
+        throw new RuntimeException("Status is required");
+    }
+
+    // 🔒 VALIDATION RULES
+    switch (current) {
+        case PLACED -> {
+            if (next != OrderStatus.SHIPPED && next != OrderStatus.CANCELLED) {
+                throw new RuntimeException(
+                        "PLACED order can only be SHIPPED or CANCELLED"
+                );
+            }
+        }
+        case SHIPPED -> {
+            if (next != OrderStatus.DELIVERED) {
+                throw new RuntimeException(
+                        "SHIPPED order can only be DELIVERED"
+                );
+            }
+        }
+        case DELIVERED, CANCELLED -> {
+            throw new RuntimeException(
+                    "Finalized orders cannot be updated"
+            );
+        }
+    }
+
+    order.setStatus(next);
+    orderRepository.save(order);
 }
 
 }
