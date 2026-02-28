@@ -31,13 +31,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = authHeader.substring(7);
 
             try {
+
                 Claims claims = JwtUtil.validateToken(token);
 
                 String email = claims.getSubject();
                 String role = claims.get("role", String.class);
 
-                // 🔴 CRITICAL LINE
-                SecurityContextHolder.clearContext();
+                System.out.println("JWT AUTH OK → " + email + " ROLE_" + role);
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
@@ -48,9 +48,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                System.out.println("JWT AUTH OK → " + email + " ROLE_" + role);
-
             } catch (Exception e) {
+
                 SecurityContextHolder.clearContext();
                 System.out.println("JWT INVALID");
             }

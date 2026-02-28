@@ -1,5 +1,4 @@
 package com.thriftbazaar.backend.controller;
-
 import com.thriftbazaar.backend.dto.ProductRequestDto;
 import com.thriftbazaar.backend.dto.ProductResponseDto;
 import com.thriftbazaar.backend.dto.UpdateStockRequestDto;
@@ -11,12 +10,14 @@ import com.thriftbazaar.backend.repository.ProductImageRepository;
 import com.thriftbazaar.backend.repository.ProductRepository;
 import com.thriftbazaar.backend.repository.UserRepository;
 import com.thriftbazaar.backend.repository.VendorRepository;
-
+import org.springframework.security.core.Authentication;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 
 @RestController
@@ -45,6 +46,7 @@ public class ProductController {
     // =========================
     @PostMapping
     public ProductResponseDto createProduct(@RequestBody ProductRequestDto dto) {
+        System.out.println(SecurityContextHolder.getContext().getAuthentication());
 
         Vendor vendor = getAuthenticatedVendor();
 
@@ -206,6 +208,41 @@ public ProductResponseDto getProductById(@PathVariable Long id) {
     }
 
     return mapToDto(product);
+}
+@DeleteMapping("/{id}")
+public ResponseEntity<?> deleteProduct(
+        @PathVariable Long id,
+        Authentication authentication
+) {
+
+    String email = authentication.getName();
+
+    User user = userRepository
+            .findByEmail(email)
+            .orElseThrow();
+
+    Vendor vendor = vendorRepository
+            .findByUser(user)
+            .orElseThrow();
+
+    Product product = productRepository
+            .findById(id)
+            .orElseThrow();
+
+    // security check → vendor can delete only own products
+    if (!product.getVendor().getId()
+            .equals(vendor.getId())) {
+
+        return ResponseEntity
+                .status(403)
+                .body("Forbidden");
+
+    }
+
+    productRepository.delete(product);
+
+    return ResponseEntity.ok().build();
+
 }
 
 }
