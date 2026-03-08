@@ -1,19 +1,11 @@
 package com.thriftbazaar.backend.config;
 
+// CORS is fully configured in SecurityConfig via CorsConfigurationSource bean.
+// This file is intentionally left as a no-op to avoid duplicate CORS configuration conflict.
+
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
-public class CorsGlobalConfig implements WebMvcConfigurer {
-
-    @Override
-    public void addCorsMappings(CorsRegistry registry) {
-
-        registry.addMapping("/**")
-                .allowedOrigins("http://localhost:5173")
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                .allowedHeaders("*")
-                .allowCredentials(true);
-    }
+public class CorsGlobalConfig {
+    // Intentionally empty — CORS managed in SecurityConfig
 }

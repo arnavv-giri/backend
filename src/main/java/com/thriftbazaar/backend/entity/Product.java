@@ -2,15 +2,43 @@ package com.thriftbazaar.backend.entity;
 import java.util.List;
 import jakarta.persistence.*;
 
+/**
+ * A product listed by a vendor.
+ *
+ * Performance notes
+ * ─────────────────
+ * vendor      – LAZY fetch.  The default (EAGER) would join vendors + users on
+ *               every single product load.  ProductService.toDto() accesses
+ *               vendor fields, but that happens inside an open Hibernate session
+ *               (either within a @Transactional boundary or Spring's open-session-
+ *               in-view, which we disable).  LAZY is always correct here.
+ *
+ * images      – LAZY (already the JPA default for @OneToMany).
+ *
+ * Composite index on (vendor_id, stock) — the two most frequent WHERE predicates
+ * in every public product query:
+ *   WHERE p.stock > 0 AND p.vendor.approved = true
+ * Adding vendor_id first keeps the index selective even with many vendors.
+ */
 @Entity
-@Table(name = "products")
+@Table(
+    name = "products",
+    indexes = {
+        @Index(name = "idx_product_vendor_stock", columnList = "vendor_id, stock"),
+        @Index(name = "idx_product_category",     columnList = "category"),
+        @Index(name = "idx_product_price",        columnList = "price")
+    }
+)
 public class Product {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    // LAZY — avoids an automatic JOIN to vendors (and then to users) on every
+    // product fetch. The vendor is only dereferenced inside service-layer methods
+    // that already hold an open session.
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vendor_id", nullable = false)
     private Vendor vendor;
 
@@ -31,7 +59,7 @@ public class Product {
 
     @Column(nullable = false)
     private int stock;
-    
+
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProductImage> images;
 
@@ -97,8 +125,8 @@ public class Product {
     public void setStock(int stock) {
         this.stock = stock;
     }
-    public List<ProductImage> getImages() {
-    return images;
-}
 
+    public List<ProductImage> getImages() {
+        return images;
+    }
 }

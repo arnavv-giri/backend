@@ -31,3 +31,9 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Secrets — never commit real credentials ###
+# The template (.env.example) IS committed; the real values are NOT.
+.env
+src/main/resources/application-local.properties
+src/main/resources/application-prod.properties

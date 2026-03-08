@@ -3,7 +3,13 @@ package com.thriftbazaar.backend.entity;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "vendors")
+@Table(
+    name    = "vendors",
+    indexes = {
+        // Queried on every public product listing: WHERE v.approved = true
+        @Index(name = "idx_vendor_approved", columnList = "approved")
+    }
+)
 public class Vendor {
 
     @Id

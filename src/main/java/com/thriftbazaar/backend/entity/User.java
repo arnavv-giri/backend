@@ -3,7 +3,16 @@ package com.thriftbazaar.backend.entity;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "users")
+@Table(
+    name    = "users",
+    indexes = {
+        // Every authenticated request resolves the JWT email to a User row.
+        // The UNIQUE constraint already creates an implicit index in PostgreSQL,
+        // but declaring it explicitly here makes the intent clear and ensures
+        // Hibernate generates a named index entry in the DDL.
+        @Index(name = "idx_user_email", columnList = "email")
+    }
+)
 public class User {
 
     @Id
@@ -18,6 +27,13 @@ public class User {
 
     @Column(nullable = false)
     private String role;
+
+    /**
+     * Optional display name.  Null for existing accounts until the user sets it.
+     * Added after initial schema — nullable so existing rows are unaffected.
+     */
+    @Column
+    private String name;
 
     // --- getters and setters ---
 
@@ -52,4 +68,7 @@ public class User {
     public void setRole(String role) {
         this.role = role;
     }
+
+    public String getName()              { return name; }
+    public void   setName(String name)   { this.name = name; }
 }

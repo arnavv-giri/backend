@@ -1,6 +1,7 @@
 package com.thriftbazaar.backend.security;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,27 +18,41 @@ import java.util.List;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    private final JwtUtil jwtUtil;
+
+    public JwtAuthenticationFilter(JwtUtil jwtUtil) {
+        this.jwtUtil = jwtUtil;
+    }
+
     @Override
     protected void doFilterInternal(
-            HttpServletRequest request,
+            HttpServletRequest  request,
             HttpServletResponse response,
-            FilterChain filterChain
+            FilterChain         filterChain
     ) throws ServletException, IOException {
 
         String authHeader = request.getHeader("Authorization");
+
+        // The browser EventSource API cannot set custom headers, so the SSE
+        // endpoint accepts the JWT as a query parameter instead.
+        // We only honour the query-param fallback for that specific path.
+        if ((authHeader == null || !authHeader.startsWith("Bearer "))
+                && "/messages/stream".equals(request.getServletPath())) {
+            String tokenParam = request.getParameter("token");
+            if (tokenParam != null && !tokenParam.isBlank()) {
+                authHeader = "Bearer " + tokenParam;
+            }
+        }
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
 
             String token = authHeader.substring(7);
 
             try {
-
-                Claims claims = JwtUtil.validateToken(token);
+                Claims claims = jwtUtil.validateToken(token);
 
                 String email = claims.getSubject();
-                String role = claims.get("role", String.class);
-
-                System.out.println("JWT AUTH OK → " + email + " ROLE_" + role);
+                String role  = claims.get("role", String.class);
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
@@ -48,10 +63,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            } catch (Exception e) {
-
+            } catch (JwtException | IllegalArgumentException e) {
+                // Token is invalid or expired — clear context and continue
+                // Spring Security will reject the request at the authorization layer
                 SecurityContextHolder.clearContext();
-                System.out.println("JWT INVALID");
             }
         }
 

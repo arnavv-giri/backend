@@ -1,79 +1,71 @@
 package com.thriftbazaar.backend.controller;
 
-import com.thriftbazaar.backend.dto.UserResponseDto;
 import com.thriftbazaar.backend.dto.VendorResponseDto;
-import com.thriftbazaar.backend.entity.User;
 import com.thriftbazaar.backend.entity.Vendor;
-import com.thriftbazaar.backend.repository.UserRepository;
-import com.thriftbazaar.backend.repository.VendorRepository;
-import org.springframework.security.core.context.SecurityContextHolder;
+import com.thriftbazaar.backend.service.VendorService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
+/**
+ * Handles vendor profile operations.
+ *
+ * Responsibilities:
+ *  - Extract authenticated email from the security context.
+ *  - Forward to VendorService.
+ *  - Return ResponseEntity.
+ *
+ * No business logic. No repository access. Role guards are in SecurityConfig + VendorService.
+ */
 @RestController
 @RequestMapping("/vendors")
 public class VendorController {
 
-    private final VendorRepository vendorRepository;
-    private final UserRepository userRepository;
+    private final VendorService vendorService;
 
-    public VendorController(VendorRepository vendorRepository,
-                            UserRepository userRepository) {
-        this.vendorRepository = vendorRepository;
-        this.userRepository = userRepository;
+    public VendorController(VendorService vendorService) {
+        this.vendorService = vendorService;
     }
 
+    // POST /vendors — Any authenticated user: submit a vendor request
     @PostMapping
-    public VendorResponseDto registerVendor(@RequestBody Vendor vendorRequest) {
-
-        String email = (String) SecurityContextHolder
-                .getContext()
-                .getAuthentication()
-                .getPrincipal();
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (!"VENDOR".equals(user.getRole())) {
-            throw new RuntimeException("Only VENDOR users can register as vendor");
-        }
-
-        Vendor vendor = new Vendor();
-        vendor.setUser(user);
-        vendor.setStoreName(vendorRequest.getStoreName());
-        vendor.setApproved(false);
-
-        Vendor saved = vendorRepository.save(vendor);
-        return mapToDto(saved);
-    }
-
-    @PutMapping("/{vendorId}/approve")
-    public VendorResponseDto approveVendor(@PathVariable Long vendorId) {
-
-        Vendor vendor = vendorRepository.findById(vendorId)
-                .orElseThrow(() -> new RuntimeException("Vendor not found"));
-
-        vendor.setApproved(true);
-        Vendor saved = vendorRepository.save(vendor);
-
-        return mapToDto(saved);
-    }
-
-    private VendorResponseDto mapToDto(Vendor vendor) {
-
-        User user = vendor.getUser();
-
-        UserResponseDto userDto =
-                new UserResponseDto(
-                        user.getId(),
-                        user.getEmail(),
-                        user.getRole()
-                );
-
-        return new VendorResponseDto(
-                vendor.getId(),
-                vendor.getStoreName(),
-                vendor.isApproved(),
-                userDto
+    public ResponseEntity<VendorResponseDto> registerVendor(
+            @RequestBody Vendor vendorRequest,
+            Authentication authentication
+    ) {
+        VendorResponseDto created = vendorService.createVendorProfile(
+                authentication.getName(),
+                vendorRequest.getStoreName()
         );
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    // GET /vendors/me — Any authenticated user: get own vendor profile (pending or approved)
+    @GetMapping("/me")
+    public ResponseEntity<VendorResponseDto> getMyProfile(Authentication authentication) {
+        return ResponseEntity.ok(
+                vendorService.getCurrentVendor(authentication.getName())
+        );
+    }
+
+    // GET /vendors/pending — Admin: list all unapproved vendor requests
+    @GetMapping("/pending")
+    public ResponseEntity<List<VendorResponseDto>> getPendingVendors() {
+        return ResponseEntity.ok(vendorService.getPendingVendors());
+    }
+
+    // GET /vendors/all — Admin: list all vendors
+    @GetMapping("/all")
+    public ResponseEntity<List<VendorResponseDto>> getAllVendors() {
+        return ResponseEntity.ok(vendorService.getAllVendors());
+    }
+
+    // PUT /vendors/{vendorId}/approve — Admin: approve a vendor (upgrades role to VENDOR)
+    @PutMapping("/{vendorId}/approve")
+    public ResponseEntity<VendorResponseDto> approveVendor(@PathVariable Long vendorId) {
+        return ResponseEntity.ok(vendorService.approveVendor(vendorId));
     }
 }

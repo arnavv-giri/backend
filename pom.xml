@@ -87,6 +87,13 @@
   <version>1.39.0</version>
 </dependency>
 
+		<!-- Razorpay Java SDK -->
+		<dependency>
+			<groupId>com.razorpay</groupId>
+			<artifactId>razorpay-java</artifactId>
+			<version>1.4.5</version>
+		</dependency>
+
 	</dependencies>
 
 	<build>
@@ -94,6 +101,21 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<!--
+					  Activate the "local" Spring profile when running via Maven.
+					  This loads application-local.properties which supplies the
+					  required secrets (DB_PASSWORD, JWT_SECRET, CLOUDINARY_*)
+					  that have no default values in application.properties.
+					
+					  In production / CI, real OS environment variables are set
+					  instead and the app is run with java -jar (no Maven), so
+					  this profile is never activated outside local development.
+					-->
+					<profiles>
+						<profile>local</profile>
+					</profiles>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>

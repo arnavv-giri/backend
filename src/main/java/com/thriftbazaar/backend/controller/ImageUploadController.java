@@ -1,69 +1,38 @@
 package com.thriftbazaar.backend.controller;
 
-import com.cloudinary.Cloudinary;
-import com.cloudinary.utils.ObjectUtils;
-
+import com.thriftbazaar.backend.service.ImageUploadService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
+/**
+ * Handles image uploads to Cloudinary.
+ *
+ * Responsibilities:
+ *  - Receive multipart file from the request.
+ *  - Forward to ImageUploadService.
+ *  - Return the public URL.
+ *
+ * No validation logic. No Cloudinary SDK calls. No IO operations.
+ */
 @RestController
 @RequestMapping("/upload")
-@CrossOrigin(origins = "http://localhost:5173")
 public class ImageUploadController {
 
-    private final Cloudinary cloudinary;
+    private final ImageUploadService imageUploadService;
 
-    public ImageUploadController(Cloudinary cloudinary) {
-        this.cloudinary = cloudinary;
+    public ImageUploadController(ImageUploadService imageUploadService) {
+        this.imageUploadService = imageUploadService;
     }
 
-    @PostMapping(
-            consumes = "multipart/form-data",
-            produces = "application/json"
-    )
-    public ResponseEntity<?> uploadImage(
+    // POST /upload — Vendor: upload product image
+    @PostMapping(consumes = "multipart/form-data", produces = "application/json")
+    public ResponseEntity<Map<String, String>> uploadImage(
             @RequestParam("file") MultipartFile file
     ) {
-
-        try {
-
-            if (file == null || file.isEmpty()) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("error", "File is empty"));
-            }
-
-            Map<?, ?> uploadResult =
-                    cloudinary.uploader().upload(
-                            file.getBytes(),
-                            ObjectUtils.asMap(
-                                    "folder", "thriftbazaar",
-                                    "resource_type", "image"
-                            )
-                    );
-
-            String url =
-                    uploadResult.get("secure_url").toString();
-
-            return ResponseEntity.ok(
-                    Map.of("url", url)
-            );
-
-        }
-        catch (Exception e) {
-
-            return ResponseEntity.internalServerError()
-                    .body(Map.of(
-                            "error",
-                            "Upload failed",
-                            "message",
-                            e.getMessage()
-                    ));
-
-        }
-
+        String url = imageUploadService.upload(file);
+        return ResponseEntity.ok(Map.of("url", url));
     }
-
 }

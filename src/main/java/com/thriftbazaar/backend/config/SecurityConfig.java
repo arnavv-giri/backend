@@ -1,16 +1,15 @@
 package com.thriftbazaar.backend.config;
 
 import com.thriftbazaar.backend.security.JwtAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -23,91 +22,105 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    /**
+     * Allowed CORS origin injected from the environment variable
+     * CORS_ALLOWED_ORIGIN (set in application.properties via ${app.cors.allowed-origin}).
+     *
+     * Default: http://localhost:5173 (Vite dev server).
+     * In production set CORS_ALLOWED_ORIGIN to your deployed frontend URL.
+     */
+    @Value("${app.cors.allowed-origin:http://localhost:5173}")
+    private String allowedOrigin;
+
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
-    // ✅ IGNORE login completely
-    @Bean
-    public WebSecurityCustomizer webSecurityCustomizer() {
-        return web -> web.ignoring()
-                .requestMatchers("/users/login")
-                .requestMatchers("/users")
-                .requestMatchers(HttpMethod.OPTIONS, "/**");
-    }
-
-    // ✅ CORS
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-
         CorsConfiguration configuration = new CorsConfiguration();
-
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
-        configuration.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS"));
+        configuration.setAllowedOrigins(List.of(allowedOrigin));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
 
-        UrlBasedCorsConfigurationSource source =
-                new UrlBasedCorsConfigurationSource();
-
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
-
         return source;
     }
 
     @Bean
-public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
-    http
-        .cors(cors -> {})   // ✅ keep this
-        .csrf(csrf -> csrf.disable())
+        http
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .csrf(csrf -> csrf.disable())
+            .formLogin(form -> form.disable())
+            .httpBasic(basic -> basic.disable())
+            .sessionManagement(session ->
+                    session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
+            .authorizeHttpRequests(auth -> auth
 
-        .formLogin(form -> form.disable())
-        .httpBasic(basic -> basic.disable())
+                // PUBLIC — no token required
+                .requestMatchers(HttpMethod.POST, "/users").permitAll()
+                .requestMatchers(HttpMethod.POST, "/users/login").permitAll()
+                .requestMatchers(HttpMethod.GET, "/products").permitAll()
+                .requestMatchers(HttpMethod.GET, "/products/search").permitAll()
+                .requestMatchers(HttpMethod.GET, "/products/{id}").permitAll()
+                .requestMatchers("/health").permitAll()
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-        .sessionManagement(session ->
-                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-        )
+                // ADMIN ONLY
+                .requestMatchers(HttpMethod.GET, "/users").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/vendors/*/approve").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/vendors/pending").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/vendors/all").hasRole("ADMIN")
 
-        .authorizeHttpRequests(auth -> auth
+                // ANY AUTHENTICATED USER (CUSTOMER or VENDOR) can request vendor status
+                .requestMatchers(HttpMethod.POST, "/vendors").authenticated()
+                .requestMatchers(HttpMethod.GET, "/vendors/me").authenticated()
+                .requestMatchers(HttpMethod.GET, "/products/my").hasRole("VENDOR")
+                .requestMatchers(HttpMethod.POST, "/products").hasRole("VENDOR")
+                .requestMatchers(HttpMethod.PUT, "/products/*").hasRole("VENDOR")
+                .requestMatchers(HttpMethod.DELETE, "/products/*").hasRole("VENDOR")
+                .requestMatchers(HttpMethod.POST, "/upload").hasRole("VENDOR")
 
-            // ✅ PUBLIC (LOGIN FIRST)
-            .requestMatchers(HttpMethod.POST, "/users/login").permitAll()
-            .requestMatchers(HttpMethod.POST, "/users").permitAll()
-            .requestMatchers(HttpMethod.GET, "/products/**").permitAll()
-            .requestMatchers("/health").permitAll()
+                // VENDOR ONLY — must be declared BEFORE the wildcard CUSTOMER rules
+                // that follow, because Spring evaluates rules in declaration order and
+                // "/orders/*" would otherwise match "/orders/vendor" first.
+                .requestMatchers(HttpMethod.GET, "/orders/vendor").hasRole("VENDOR")
 
-            // ✅ allow preflight
-            .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                // ADMIN or VENDOR — same reason: declare before /orders/* wildcard
+                .requestMatchers(HttpMethod.PUT, "/orders/*/status").hasAnyRole("ADMIN", "VENDOR")
 
-            // ADMIN
-            .requestMatchers(HttpMethod.GET, "/users").hasRole("ADMIN")
-            .requestMatchers(HttpMethod.PUT, "/vendors/*/approve").hasRole("ADMIN")
+                // CUSTOMER ONLY
+                .requestMatchers("/cart/**").hasRole("CUSTOMER")
+                .requestMatchers(HttpMethod.POST, "/orders/checkout").hasRole("CUSTOMER")
+                .requestMatchers(HttpMethod.GET,  "/orders").hasRole("CUSTOMER")
+                .requestMatchers(HttpMethod.GET,  "/orders/*").hasRole("CUSTOMER")
+                .requestMatchers(HttpMethod.POST, "/payments/create-order").hasRole("CUSTOMER")
+                .requestMatchers(HttpMethod.POST, "/payments/verify").hasRole("CUSTOMER")
 
-            // VENDOR
-            .requestMatchers(HttpMethod.POST, "/vendors").hasRole("VENDOR")
-            .requestMatchers(HttpMethod.POST, "/products").hasRole("VENDOR")
-            .requestMatchers(HttpMethod.GET, "/products/my").hasRole("VENDOR")
-            .requestMatchers(HttpMethod.PUT, "/products/*/stock").hasRole("VENDOR")
-            .requestMatchers(HttpMethod.POST, "/upload").hasRole("VENDOR")
+                // REVIEWS
+                .requestMatchers(HttpMethod.GET,  "/reviews/product/*").permitAll()
+                .requestMatchers(HttpMethod.POST, "/reviews/product/*").hasRole("CUSTOMER")
+                .requestMatchers(HttpMethod.GET,  "/reviews/product/*/can-review").authenticated()
 
-            // CUSTOMER
-            .requestMatchers("/cart/**").hasRole("CUSTOMER")
-            .requestMatchers(HttpMethod.POST, "/orders/checkout").hasRole("CUSTOMER")
-            .requestMatchers(HttpMethod.GET, "/orders/**").hasRole("CUSTOMER")
+                // MESSAGING — any authenticated user (buyer or vendor)
+                .requestMatchers("/messages/**").authenticated()
 
-            // ADMIN / VENDOR
-            .requestMatchers(HttpMethod.PUT, "/orders/*/status")
-                .hasAnyRole("ADMIN", "VENDOR")
+                // ANY AUTHENTICATED USER — own profile
+                .requestMatchers(HttpMethod.GET, "/users/me").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/users/me").authenticated()
 
-            .anyRequest().authenticated()
-        )
+                .anyRequest().authenticated()
+            )
+            .addFilterBefore(
+                    jwtAuthenticationFilter,
+                    UsernamePasswordAuthenticationFilter.class
+            );
 
-        .addFilterBefore(
-            jwtAuthenticationFilter,
-            UsernamePasswordAuthenticationFilter.class
-        );
-
-    return http.build();
-}
+        return http.build();
+    }
 }
