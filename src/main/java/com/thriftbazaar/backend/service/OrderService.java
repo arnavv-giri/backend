@@ -252,6 +252,39 @@ public class OrderService {
         );
     }
 
+    // ───────────────────────────────────────────────────────────────────
+    // CUSTOMER: CANCEL OWN ORDER
+    // ───────────────────────────────────────────────────────────────────
+
+    /**
+     * Allows the order owner to cancel their own PENDING or PROCESSING order.
+     * Uses a dedicated endpoint so CUSTOMER role can call it without being
+     * granted the general PUT /orders/{id}/status permission.
+     */
+    @Transactional
+    public OrderResponseDto cancelOrder(String authenticatedEmail, Long orderId) {
+
+        Order order = orderRepository.findByIdWithItems(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
+
+        User caller = userService.getByEmail(authenticatedEmail);
+        if (!order.getCustomer().getId().equals(caller.getId())) {
+            throw new UnauthorizedActionException(
+                    "You do not have permission to cancel this order");
+        }
+
+        if (!"PENDING".equals(order.getStatus()) && !"PROCESSING".equals(order.getStatus())) {
+            throw new InvalidRequestException(
+                    "Only PENDING or PROCESSING orders can be cancelled");
+        }
+
+        order.setStatus("CANCELLED");
+        Order saved = orderRepository.save(order);
+        log.info("Order cancelled by customer — orderId={} customerId={}",
+                orderId, caller.getId());
+        return toDto(saved);
+    }
+
     /**
      * Maps an Order to the vendor-facing DTO, filtering items to only those
      * whose product belongs to the given vendor.

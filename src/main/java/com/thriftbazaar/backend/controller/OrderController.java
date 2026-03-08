@@ -77,6 +77,13 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getOrderById(auth.getName(), id));
     }
 
+    // ── GET /orders/vendor ────────────────────────────────────────────────
+
+    @GetMapping("/vendor")
+    public ResponseEntity<List<VendorOrderResponseDto>> getVendorOrders(Authentication auth) {
+        return ResponseEntity.ok(orderService.getVendorOrders(auth.getName()));
+    }
+
     // ── PUT /orders/{id}/status ───────────────────────────────────────────
 
     /**
@@ -84,13 +91,6 @@ public class OrderController {
      * Request body: { "status": "SHIPPED" }
      * Accessible by ADMIN or VENDOR (enforced in SecurityConfig).
      */
-    // ── GET /orders/vendor ───────────────────────────────────────
-
-    @GetMapping("/vendor")
-    public ResponseEntity<List<VendorOrderResponseDto>> getVendorOrders(Authentication auth) {
-        return ResponseEntity.ok(orderService.getVendorOrders(auth.getName()));
-    }
-
     @PutMapping("/{id}/status")
     public ResponseEntity<OrderResponseDto> updateStatus(
             @PathVariable Long id,
@@ -98,5 +98,20 @@ public class OrderController {
 
         String newStatus = body.get("status");
         return ResponseEntity.ok(orderService.updateStatus(id, newStatus));
+    }
+
+    // ── POST /orders/{id}/cancel ──────────────────────────────────────────
+
+    /**
+     * Allows the order owner (CUSTOMER) to cancel their own order.
+     * Only cancellable when status is PENDING or PROCESSING.
+     * SecurityConfig allows CUSTOMER role via the /orders/* wildcard rule.
+     */
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<OrderResponseDto> cancelOrder(
+            Authentication auth,
+            @PathVariable Long id) {
+
+        return ResponseEntity.ok(orderService.cancelOrder(auth.getName(), id));
     }
 }

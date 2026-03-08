@@ -97,6 +97,7 @@ public class SecurityConfig {
                 // CUSTOMER ONLY
                 .requestMatchers("/cart/**").hasRole("CUSTOMER")
                 .requestMatchers(HttpMethod.POST, "/orders/checkout").hasRole("CUSTOMER")
+                .requestMatchers(HttpMethod.POST, "/orders/*/cancel").hasRole("CUSTOMER")
                 .requestMatchers(HttpMethod.GET,  "/orders").hasRole("CUSTOMER")
                 .requestMatchers(HttpMethod.GET,  "/orders/*").hasRole("CUSTOMER")
                 .requestMatchers(HttpMethod.POST, "/payments/create-order").hasRole("CUSTOMER")

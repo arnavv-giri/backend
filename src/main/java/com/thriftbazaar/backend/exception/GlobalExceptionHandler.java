@@ -72,6 +72,15 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
+    // ── 502 — upstream payment gateway failure ──────────────────────────
+    @ExceptionHandler(PaymentServiceException.class)
+    public ResponseEntity<Map<String, Object>> handlePaymentServiceError(
+            PaymentServiceException ex, HttpServletRequest request) {
+        log.error("502 Payment Gateway Error — {} {}: {}",
+                request.getMethod(), request.getRequestURI(), ex.getMessage(), ex.getCause());
+        return build(HttpStatus.BAD_GATEWAY, ex.getMessage(), request);
+    }
+
     // ── 500 (safety net) ─────────────────────────────────────────────────
     /**
      * Catches any exception not handled by the specific handlers above.
